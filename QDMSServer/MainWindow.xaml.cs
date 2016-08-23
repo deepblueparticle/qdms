@@ -35,6 +35,7 @@ using Nancy.Authentication.Stateless;
 using QDMS.Server;
 using QDMS.Server.Nancy;
 using QDMS.Server.Repositories;
+using QDMS.Server.DataSources;
 
 namespace QDMSServer
 {
@@ -190,7 +191,8 @@ namespace QDMSServer
                     //new Forexite(),
                     new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.histClientIBID),
                     new Quandl(Properties.Settings.Default.quandlAuthCode),
-                    new BarChart(Properties.Settings.Default.barChartApiKey)
+                    new BarChart(Properties.Settings.Default.barChartApiKey),
+                    new EOD(Properties.Settings.Default.eODDataUserName, Properties.Settings.Default.eODDataPassword)
                 });
 
             var countryCodeHelper = new CountryCodeHelper(entityContext.Countries.ToList());
