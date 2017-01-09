@@ -225,6 +225,7 @@ namespace QDMSServer
                                 _socket.SendFrame(MyUtils.ProtoBufSerialize(sdi, ms));
                             }
                         }
+                        _socket.Send("END");
                     }
                 }
             }
