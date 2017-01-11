@@ -572,6 +572,10 @@
       <Project>{17ade009-cab6-4389-93e1-afe1a2dbb18c}</Project>
       <Name>QDMS.Server.DataStorage.SqlServer</Name>
     </ProjectReference>
+    <ProjectReference Include="..\QDMS.Server.DataSources.EODData\QDMS.Server.DataSources.EODData.csproj">
+      <Project>{19A2D502-D0AB-40BB-8284-1FB59DF731CA}</Project>
+      <Name>QDMS.Server.DataSources.EODData</Name>
+    </ProjectReference>
     <ProjectReference Include="..\QDMS.Server\QDMS.Server.csproj">
       <Project>{c5427849-6011-4198-bca4-d7cdcf971e7c}</Project>
       <Name>QDMS.Server</Name>

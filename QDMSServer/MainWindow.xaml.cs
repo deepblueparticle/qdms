@@ -35,6 +35,7 @@ using Nancy.Authentication.Stateless;
 using QDMS.Server;
 using QDMS.Server.Nancy;
 using QDMS.Server.Repositories;
+using QDMS.Server.DataSources;
 
 namespace QDMSServer
 {
@@ -176,22 +177,43 @@ namespace QDMSServer
                     useSsl: Properties.Settings.Default.useSsl), 
                     connectImmediately: false);
             var localStorage = DataStorageFactory.Get();
-            RealTimeBroker = new RealTimeDataBroker(cfRealtimeBroker, localStorage,
-                new IRealTimeDataSource[] {
-                    //new Xignite(Properties.Settings.Default.xigniteApiToken),
-                    //new Oanda(Properties.Settings.Default.oandaAccountId, Properties.Settings.Default.oandaAccessToken),
-                    new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.rtdClientIBID),
-                    //new ForexFeed(Properties.Settings.Default.forexFeedAccessKey, ForexFeed.PriceType.Mid)
-                });
-            HistoricalBroker = new HistoricalDataBroker(cfHistoricalBroker, localStorage,
-                new IHistoricalDataSource[] {
-                    new Yahoo(),
-                    new FRED(),
-                    //new Forexite(),
-                    new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.histClientIBID),
-                    new Quandl(Properties.Settings.Default.quandlAuthCode),
-                    new BarChart(Properties.Settings.Default.barChartApiKey)
-                });
+
+            var realTimeDataSourceList = new List<IRealTimeDataSource>();
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.ibClientHost) &&
+                Properties.Settings.Default.ibClientPort != default(int) &&
+                Properties.Settings.Default.rtdClientIBID != default(int))
+            {
+                realTimeDataSourceList.Add(new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.rtdClientIBID));
+            }
+
+            var historicalDataSourceList = new List<IHistoricalDataSource>
+            {
+                new Yahoo(),
+                new FRED(),
+                //new Forexite(),
+            };
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.ibClientHost) &&
+                Properties.Settings.Default.ibClientPort != default(int) &&
+                Properties.Settings.Default.histClientIBID != default(int))
+            {
+                historicalDataSourceList.Add(new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.histClientIBID));
+            }
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.quandlAuthCode))
+            {
+                historicalDataSourceList.Add(new Quandl(Properties.Settings.Default.quandlAuthCode));
+            }
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.barChartApiKey))
+            {
+                historicalDataSourceList.Add(new BarChart(Properties.Settings.Default.barChartApiKey));
+            }
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.eODDataUserName) &&
+                !string.IsNullOrEmpty(Properties.Settings.Default.eODDataPassword))
+            {
+                historicalDataSourceList.Add(new EOD(Properties.Settings.Default.eODDataUserName, Properties.Settings.Default.eODDataPassword));
+            }
+
+            RealTimeBroker = new RealTimeDataBroker(cfRealtimeBroker, localStorage, realTimeDataSourceList);
+            HistoricalBroker = new HistoricalDataBroker(cfHistoricalBroker, localStorage, historicalDataSourceList);
 
             var countryCodeHelper = new CountryCodeHelper(entityContext.Countries.ToList());
 
