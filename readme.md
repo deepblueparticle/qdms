@@ -2,7 +2,7 @@ QUSMA Data Management System (QDMS)
 ===================================
 
 [![Join the chat at https://gitter.im/qdms/Lobby](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/qdms/Lobby)
-[![Build status](https://ci.appveyor.com/api/projects/status/ma7h13iqscrl5h05/branch/master?svg=true)](https://ci.appveyor.com/project/LeonhardSchick/qdms/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/ma7h13iqscrl5h05/branch/master?svg=true)](https://ci.appveyor.com/project/leo90skk/qdms/branch/master)
 
 The QUSMA Data Management System (QDMS) is a client/server system for acquiring, managing, and distributing low-frequency historical and real-time data, written in C#. 
 
