@@ -40,6 +40,7 @@ Supported Data Sources
 | BarChart                              | :white_check_mark:    |                    |
 | [OpenECry](http://futuresonline.com/) | :white_check_mark:    | :white_check_mark: |
 | [ForexFeed](http://forexfeed.net/)    | (not implemented)     | :white_check_mark: |
+| [EOD Data](http://www.eoddata.com/)   | :white_check_mark:    | (not implemented)  |
 
 When you miss a data service, feel free to ask...
 
