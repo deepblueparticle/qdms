@@ -10,7 +10,7 @@ namespace QDMSTest
     [TestFixture]
     public class EODataTests
     {
-
+        /* Disabled, take a look at https://github.com/leo90skk/qdms/issues/29
         [Test]
         public void EODData_ConnectToServer()
         {
@@ -60,6 +60,6 @@ namespace QDMSTest
             var result = _client.RequestHistoricalData(req);
 
 
-        }
+        }*/
     }
 }
