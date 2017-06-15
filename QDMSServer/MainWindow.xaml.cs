@@ -117,95 +117,9 @@ namespace QDMSServer
 
             //build session templates menu
             BuildSetSessionTemplateMenu();
-
-<<<<<<< HEAD
-            Instruments = new ObservableCollection<Instrument>();
-
-            var instrumentRepo = new InstrumentRepository(entityContext);
-            var instrumentList = instrumentRepo.FindInstruments().Result;
-
-            foreach (Instrument i in instrumentList)
-            {
-                Instruments.Add(i);
-            }
-
-            //create brokers
-            var cfRealtimeBroker = new ContinuousFuturesBroker(new QDMSClient.QDMSClient(
-                    "RTDBCFClient",
-                    "127.0.0.1",
-                    Properties.Settings.Default.rtDBReqPort,
-                    Properties.Settings.Default.rtDBPubPort,
-                    Properties.Settings.Default.hDBPort,
-                    Properties.Settings.Default.httpPort,
-                    Properties.Settings.Default.apiKey,
-                    useSsl: Properties.Settings.Default.useSsl), 
-                    connectImmediately: false);
-            var cfHistoricalBroker = new ContinuousFuturesBroker(new QDMSClient.QDMSClient(
-                    "HDBCFClient",
-                    "127.0.0.1",
-                    Properties.Settings.Default.rtDBReqPort,
-                    Properties.Settings.Default.rtDBPubPort,
-                    Properties.Settings.Default.hDBPort,
-                    Properties.Settings.Default.httpPort,
-                    Properties.Settings.Default.apiKey,
-                    useSsl: Properties.Settings.Default.useSsl), 
-                    connectImmediately: false);
-            var localStorage = DataStorageFactory.Get();
-
-            var realTimeDataSourceList = new List<IRealTimeDataSource>();
-            if (!string.IsNullOrEmpty(Properties.Settings.Default.ibClientHost) &&
-                Properties.Settings.Default.ibClientPort != default(int) &&
-                Properties.Settings.Default.rtdClientIBID != default(int))
-            {
-                realTimeDataSourceList.Add(new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.rtdClientIBID));
-            }
-
-            var historicalDataSourceList = new List<IHistoricalDataSource>
-            {
-                new Yahoo(),
-                new FRED(),
-                //new Forexite(),
-            };
-            if (!string.IsNullOrEmpty(Properties.Settings.Default.ibClientHost) &&
-                Properties.Settings.Default.ibClientPort != default(int) &&
-                Properties.Settings.Default.histClientIBID != default(int))
-            {
-                historicalDataSourceList.Add(new IB(Properties.Settings.Default.ibClientHost, Properties.Settings.Default.ibClientPort, Properties.Settings.Default.histClientIBID));
-            }
-            if (!string.IsNullOrEmpty(Properties.Settings.Default.quandlAuthCode))
-            {
-                historicalDataSourceList.Add(new Quandl(Properties.Settings.Default.quandlAuthCode));
-            }
-            if (!string.IsNullOrEmpty(Properties.Settings.Default.barChartApiKey))
-            {
-                historicalDataSourceList.Add(new BarChart(Properties.Settings.Default.barChartApiKey));
-            }
-            if (!string.IsNullOrEmpty(Properties.Settings.Default.eODDataUserName) &&
-                !string.IsNullOrEmpty(Properties.Settings.Default.eODDataPassword))
-            {
-                historicalDataSourceList.Add(new EOD(Properties.Settings.Default.eODDataUserName, Properties.Settings.Default.eODDataPassword));
-            }
-
-            RealTimeBroker = new RealTimeDataBroker(cfRealtimeBroker, localStorage, realTimeDataSourceList);
-            HistoricalBroker = new HistoricalDataBroker(cfHistoricalBroker, localStorage, historicalDataSourceList);
-
-            var countryCodeHelper = new CountryCodeHelper(entityContext.Countries.ToList());
-
-            EconomicReleaseBroker = new EconomicReleaseBroker("FXStreet",
-                new[] { new fx.FXStreet(countryCodeHelper) });
-
-            //create the various servers
-            _realTimeServer = new RealTimeDataServer(Properties.Settings.Default.rtDBPubPort, Properties.Settings.Default.rtDBReqPort, RealTimeBroker);
-            _historicalDataServer = new HistoricalDataServer(Properties.Settings.Default.hDBPort, HistoricalBroker);
-
-            //and start them
-            _realTimeServer.StartServer();
-            _historicalDataServer.StartServer();
             
-=======
             entityContext.Dispose();
 
->>>>>>> qusma/master
             //we also need a client to make historical data requests with
             _client = new QDMSClient.QDMSClient(
                 "SERVERCLIENT",
