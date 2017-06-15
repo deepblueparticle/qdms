@@ -53,6 +53,7 @@ namespace QDMSServer
         private readonly ConcurrentDictionary<int, HistoricalDataRequest> _originalRequests;
 
         private readonly ConcurrentDictionary<int, List<HistoricalDataRequest>> _subRequests;
+        public ConcurrentNotifierBlockingList<HistoricalDataRequest> PendingRequests { get; } = new ConcurrentNotifierBlockingList<HistoricalDataRequest>();
 
         public void Dispose()
         {
@@ -257,6 +258,9 @@ namespace QDMSServer
         /// </summary>
         private void ReturnData(HistoricalDataEventArgs e)
         {
+            //Remove request from the list
+            PendingRequests.TryRemove(e.Request);
+
             //if needed, we filter out the data outside of regular trading hours
             if (e.Request.RTHOnly &&
                 e.Request.Frequency < BarSize.OneDay &&
@@ -329,7 +333,18 @@ namespace QDMSServer
             //assign an ID to the request
             request.AssignedID = GetUniqueRequestID();
 
+            _logger.Info(
+                "Received request: {6} {0} @ {1} from {2} to {3} Location: {4} {5:;;SaveToLocal}",
+                request.Instrument.Symbol,
+                Enum.GetName(typeof(BarSize), request.Frequency),
+                request.StartingDate,
+                request.EndingDate,
+                request.DataLocation,
+                request.SaveDataToStorage ? 0 : 1,
+                request.Instrument.Datasource.Name);
+
             _originalRequests.TryAdd(request.AssignedID, request);
+            PendingRequests.TryAdd(request);
 
             //request says to ignore the external data source, just send the request as-is to the local storage
             if (request.DataLocation == DataLocation.LocalOnly)
@@ -483,6 +498,11 @@ namespace QDMSServer
             var now = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.Local, exchangeTZ);
             DateTime endDate = request.EndingDate > now ? now : request.EndingDate;
             request.EndingDate = endDate;
+
+            //make sure this doesn't result in endDate < startDate
+            request.StartingDate = request.StartingDate > request.EndingDate
+                ? request.EndingDate.AddMinutes(-1)
+                : request.StartingDate;
 
             if (request.Instrument.IsContinuousFuture)
             {

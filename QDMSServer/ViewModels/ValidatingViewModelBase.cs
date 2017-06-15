@@ -36,6 +36,8 @@ namespace QDMSServer.ViewModels
 
         protected void Validate(string propertyName = null)
         {
+            if (propertyName == nameof(HasErrors)) return;
+
             if (string.IsNullOrEmpty(propertyName))
             {
                 ValidateObject();
@@ -56,14 +58,11 @@ namespace QDMSServer.ViewModels
             if (!_errors.ContainsKey(propertyName)) _errors.Add(propertyName, new List<string>());
 
             var newErrors = result.Errors.Select(x => x.ErrorMessage).ToList();
-            var notify = newErrors.Intersect(_errors[propertyName]).Count() != newErrors.Count;
+
             _errors[propertyName] = newErrors;
             HasErrors = _errors.Any(x => x.Value.Count > 0);
 
-            if (notify)
-            {
-                ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
-            }
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
         }
 
         /// <summary>
@@ -78,6 +77,7 @@ namespace QDMSServer.ViewModels
             var oldErrors = _errors;
             _errors = newErrors;
             NotifyChangedErrors(oldErrors, newErrors);
+            HasErrors = _errors.Any(x => x.Value.Count > 0);
         }
 
         private void NotifyChangedErrors(Dictionary<string, List<string>> oldErrors, Dictionary<string, List<string>> newErrors)

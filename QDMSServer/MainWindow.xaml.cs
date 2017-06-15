@@ -1,13 +1,11 @@
 ﻿// -----------------------------------------------------------------------
 // <copyright file="MainWindow.xaml.cs" company="">
-// Copyright 2014 Alexander Soffronow Pagonidis
+// Copyright 2017 Alexander Soffronow Pagonidis
 // </copyright>
 // -----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Deployment.Application;
 using System.IO;
 using System.Linq;
@@ -23,12 +21,6 @@ using MahApps.Metro.Controls.Dialogs;
 using NLog;
 using NLog.Targets;
 using QDMS;
-using QDMS.Server.Brokers;
-using QDMS.Server.DataSources;
-using Quartz;
-using Quartz.Impl;
-using Quartz.Impl.Matchers;
-using QDMSServer.DataSources;
 using QDMSServer.Properties;
 using Nancy.Hosting.Self;
 using Nancy.Authentication.Stateless;
@@ -36,6 +28,7 @@ using QDMS.Server;
 using QDMS.Server.Nancy;
 using QDMS.Server.Repositories;
 using QDMS.Server.DataSources;
+using QDMSServer.ViewModels;
 
 namespace QDMSServer
 {
@@ -44,22 +37,12 @@ namespace QDMSServer
     /// </summary>
     public partial class MainWindow : MetroWindow
     {
-        public RealTimeDataBroker RealTimeBroker { get; set; }
-        private readonly RealTimeDataServer _realTimeServer;
-        public HistoricalDataBroker HistoricalBroker { get; set; }
-        public EconomicReleaseBroker EconomicReleaseBroker { get; set; }
-        private readonly HistoricalDataServer _historicalDataServer;
-
-        private readonly IScheduler _scheduler;
-
         private readonly QDMSClient.QDMSClient _client;
+        private readonly Logger _clientLogger = LogManager.GetLogger("client");
 
         private ProgressBar _progressBar;
-
-        public ObservableCollection<Instrument> Instruments { get; set; }
-
-        public ConcurrentNotifierBlockingList<LogEventInfo> LogMessages { get; set; }
-
+        
+        private MainViewModel ViewModel { get; }
         public MainWindow()
         {
             Common.Logging.LogManager.Adapter = new NLogLoggerFactoryAdapter(new Common.Logging.Configuration.NameValueCollection());
@@ -77,7 +60,6 @@ namespace QDMSServer
             DBUtils.SetDbConfiguration();
 
             InitializeComponent();
-            DataContext = this;
 
             //load datagrid layout
             string layoutFile = AppDomain.CurrentDomain.BaseDirectory + "GridLayout.xml";
@@ -92,17 +74,8 @@ namespace QDMSServer
                 }
             }
 
-            LogMessages = new ConcurrentNotifierBlockingList<LogEventInfo>();
-
-            //target is where the log managers send their logs, here we grab the memory target which has a Subject to observe
-            var target = LogManager.Configuration.AllTargets.Single(x => x.Name == "myTarget") as MemoryTarget;
-
             //Log unhandled exceptions
             AppDomain.CurrentDomain.UnhandledException += AppDomain_CurrentDomain_UnhandledException;
-
-            //we subscribe to the messages and send them all to the LogMessages collection
-            if (target != null)
-                target.Messages.Subscribe(msg => LogMessages.TryAdd(msg));
 
             //build the instruments grid context menu
             //we want a button for each BarSize enum value in the UpdateFreqSubMenu menu
@@ -145,6 +118,7 @@ namespace QDMSServer
             //build session templates menu
             BuildSetSessionTemplateMenu();
 
+<<<<<<< HEAD
             Instruments = new ObservableCollection<Instrument>();
 
             var instrumentRepo = new InstrumentRepository(entityContext);
@@ -228,6 +202,10 @@ namespace QDMSServer
             _realTimeServer.StartServer();
             _historicalDataServer.StartServer();
             
+=======
+            entityContext.Dispose();
+
+>>>>>>> qusma/master
             //we also need a client to make historical data requests with
             _client = new QDMSClient.QDMSClient(
                 "SERVERCLIENT",
@@ -238,64 +216,14 @@ namespace QDMSServer
                 Properties.Settings.Default.httpPort,
                 Properties.Settings.Default.apiKey,
                 useSsl: Properties.Settings.Default.useSsl);
-            _client.Connect();
             _client.HistoricalDataReceived += _client_HistoricalDataReceived;
+            _client.Error += (s, e) => _clientLogger.Error(e.ErrorMessage);
 
-            ActiveStreamGrid.ItemsSource = RealTimeBroker.ActiveStreams;
-
-            //create the scheduler
-            var quartzSettings = QuartzUtils.GetQuartzSettings(Settings.Default.databaseType);
-            ISchedulerFactory schedulerFactory = new StdSchedulerFactory(quartzSettings);
-            _scheduler = schedulerFactory.GetScheduler();
-            _scheduler.JobFactory = new JobFactory(HistoricalBroker,
-                Properties.Settings.Default.updateJobEmailHost,
-                Properties.Settings.Default.updateJobEmailPort,
-                Properties.Settings.Default.updateJobEmailUsername,
-                Properties.Settings.Default.updateJobEmailPassword,
-                Properties.Settings.Default.updateJobEmailSender,
-                Properties.Settings.Default.updateJobEmail,
-                new UpdateJobSettings(
-                    noDataReceived: Properties.Settings.Default.updateJobReportNoData,
-                    errors: Properties.Settings.Default.updateJobReportErrors,
-                    outliers: Properties.Settings.Default.updateJobReportOutliers,
-                    requestTimeouts: Properties.Settings.Default.updateJobTimeouts,
-                    timeout: Properties.Settings.Default.updateJobTimeout,
-                    toEmail: Properties.Settings.Default.updateJobEmail,
-                    fromEmail: Properties.Settings.Default.updateJobEmailSender),
-                localStorage,
-                EconomicReleaseBroker);
-            _scheduler.Start();
-
-            //Take jobs stored in the qmds db and move them to the quartz db - this can be removed in the next version
-            MigrateJobs(entityContext, _scheduler);
-
-            var bootstrapper = new CustomBootstrapper(
-                DataStorageFactory.Get(), 
-                EconomicReleaseBroker,
-                HistoricalBroker,
-                RealTimeBroker,
-                _scheduler,
-                Properties.Settings.Default.apiKey);
-            var uri = new Uri((Settings.Default.useSsl ? "https" : "http") + "://localhost:" + Properties.Settings.Default.httpPort);
-            var host = new NancyHost(bootstrapper, uri);
-            host.Start();
-
-            entityContext.Dispose();
+            //Create ViewModel
+            ViewModel = new MainViewModel(_client, DialogCoordinator.Instance);
+            DataContext = ViewModel;
 
             ShowChangelog();
-        }
-
-        private void MigrateJobs(MyDBContext context, IScheduler scheduler)
-        {
-            //Check if there are jobs in the QDMS db and no jobs in the quartz db - in that case we migrate them
-            var repo = new JobsRepository(context, scheduler);
-            if (context.DataUpdateJobs.Any() && scheduler.GetJobKeys(GroupMatcher<JobKey>.AnyGroup()).Count == 0)
-            {
-                foreach (DataUpdateJobSettings job  in context.DataUpdateJobs)
-                {
-                    repo.ScheduleJob(job);
-                }
-            }
         }
 
         private void AppDomain_CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -420,7 +348,7 @@ namespace QDMSServer
                 foreach (Instrument i in selectedInstruments)
                 {
                     if (!i.ID.HasValue) continue;
-
+                    //TODO add GetStorageInfo to client, then remove dependency on DataStorageFactory here
                     var storageInfo = localStorage.GetStorageInfo(i.ID.Value);
                     if (storageInfo.Any(x => x.Frequency == frequency))
                     {
@@ -457,22 +385,12 @@ namespace QDMSServer
                 InstrumentsGrid.SerializeLayout(file);
             }
 
-            //shut down quartz
-            _scheduler.Shutdown(true);
+            //Dispose main viewmodel
+            ViewModel.Dispose();
 
             //then take down the client, the servers, and the brokers
             _client.Disconnect();
             _client.Dispose();
-
-            _realTimeServer.StopServer();
-            _realTimeServer.Dispose();
-
-            _historicalDataServer.StopServer();
-            _historicalDataServer.Dispose();
-
-            RealTimeBroker.Dispose();
-
-            HistoricalBroker.Dispose();
         }
 
         //exiting the application
@@ -484,13 +402,13 @@ namespace QDMSServer
         //show the interactive brokers add instrument window
         private void AddInstrumentIBBtn_ItemClick(object sender, RoutedEventArgs routedEventArgs)
         {
-            var window = new AddInstrumentInteractiveBrokersWindow();
+            var window = new AddInstrumentInteractiveBrokersWindow(_client);
 
             if (window.ViewModel != null && window.ViewModel.AddedInstruments != null)
             {
                 foreach (Instrument i in window.ViewModel.AddedInstruments)
                 {
-                    Instruments.Add(i);
+                    ViewModel.Instruments.Add(i);
                 }
                 window.Close();
             }
@@ -499,13 +417,14 @@ namespace QDMSServer
         //show the Quandl add instrument window
         private void AddInstrumentQuandlBtn_OnClick(object sender, RoutedEventArgs e)
         {
-            var window = new AddInstrumentQuandlWindow();
+            var window = new AddInstrumentQuandlWindow(_client);
+            window.ShowDialog();
 
-            if (window.AddedInstruments != null)
+            if (window.ViewModel.AddedInstruments != null)
             {
-                foreach (Instrument i in window.AddedInstruments)
+                foreach (Instrument i in window.ViewModel.AddedInstruments)
                 {
-                    Instruments.Add(i);
+                    ViewModel.Instruments.Add(i);
                 }
                 window.Close();
             }
@@ -514,102 +433,29 @@ namespace QDMSServer
         //show the FRED add instrument window
         private void AddInstrumentFredBtn_OnClick(object sender, RoutedEventArgs e)
         {
-            using (var context = new MyDBContext())
-            {
-                var window = new AddInstrumentFredWindow(context);
-
-                if (window.AddedInstruments != null)
-                {
-                    foreach (Instrument i in window.AddedInstruments)
-                    {
-                        Instruments.Add(i);
-                    }
-                    window.Close();
-                }
-            }
-        }
-
-        //show a window to modify the selected instrument
-        private void TableView_RowDoubleClick(object sender, MouseButtonEventArgs mouseButtonEventArgs)
-        {
-            var inst = (Instrument)InstrumentsGrid.SelectedItem;
-            var window = new AddInstrumentManuallyWindow(inst, false);
+            var window = new AddInstrumentFredWindow(_client);
             window.ShowDialog();
 
-            CollectionViewSource.GetDefaultView(InstrumentsGrid.ItemsSource).Refresh();
-
-            window.Close();
+            if (window.ViewModel.AddedInstruments != null)
+            {
+                foreach (Instrument i in window.ViewModel.AddedInstruments)
+                {
+                    ViewModel.Instruments.Add(i);
+                }
+                window.Close();
+            }
         }
 
         //show the window to add a new custom futures contract
         private void BtnAddCustomFutures_ItemClick(object sender, RoutedEventArgs routedEventArgs)
         {
-            var window = new AddInstrumentManuallyWindow(addingContFut: true);
+            var window = new AddInstrumentManuallyWindow(_client, addingContFut: true);
             window.ShowDialog();
-            if (window.InstrumentAdded)
+            if (window.ViewModel.AddedInstrument != null)
             {
-                Instruments.Add(window.TheInstrument);
+                ViewModel.Instruments.Add(window.ViewModel.AddedInstrument);
             }
             window.Close();
-        }
-
-        private void AddInstrumentManuallyBtn_ItemClick(object sender, RoutedEventArgs routedEventArgs)
-        {
-            var window = new AddInstrumentManuallyWindow();
-            window.ShowDialog();
-            if (window.InstrumentAdded)
-            {
-                Instruments.Add(window.TheInstrument);
-            }
-            window.Close();
-        }
-
-        //clone an instrument
-        private void InstrumentContextCloneBtn_ItemClick(object sender, RoutedEventArgs routedEventArgs)
-        {
-            var inst = (Instrument)InstrumentsGrid.SelectedItem;
-            var window = new AddInstrumentManuallyWindow(inst);
-            window.ShowDialog();
-            if (window.InstrumentAdded)
-            {
-                Instruments.Add(window.TheInstrument);
-            }
-            window.Close();
-        }
-
-        //delete one or more instruments
-        private async void DeleteInstrumentBtn_ItemClick(object sender, RoutedEventArgs routedEventArgs)
-        {
-            var selectedInstruments = InstrumentsGrid.SelectedItems;
-            if (selectedInstruments.Count == 0) return;
-
-            if (selectedInstruments.Count == 1)
-            {
-                var inst = (Instrument)selectedInstruments[0];
-                MessageBoxResult res = MessageBox.Show(string.Format("Are you sure you want to delete {0} @ {1}?", inst.Symbol, inst.Datasource.Name),
-                    "Delete", MessageBoxButton.YesNo);
-                if (res == MessageBoxResult.No) return;
-            }
-            else
-            {
-                MessageBoxResult res = MessageBox.Show(string.Format("Are you sure you want to delete {0} instruments?", selectedInstruments.Count),
-                    "Delete", MessageBoxButton.YesNo);
-                if (res == MessageBoxResult.No) return;
-            }
-
-            List<Instrument> toRemove = new List<Instrument>();
-
-            foreach (Instrument i in InstrumentsGrid.SelectedItems)
-            {
-                await _client.DeleteInstrument(i).ConfigureAwait(true);
-                toRemove.Add(i);
-            }
-
-            while (toRemove.Count > 0)
-            {
-                Instruments.Remove(toRemove[toRemove.Count - 1]);
-                toRemove.RemoveAt(toRemove.Count - 1);
-            }
         }
 
         private void EditDataBtn_ItemClick(object sender, RoutedEventArgs routedEventArgs)
@@ -634,13 +480,13 @@ namespace QDMSServer
 
         private void ExchangesBtn_OnItemClick(object sender, RoutedEventArgs routedEventArgs)
         {
-            var window = new ExchangesWindow();
+            var window = new ExchangesWindow(_client);
             window.ShowDialog();
         }
 
         private void SessionTemplateBtn_OnItemClick(object sender, RoutedEventArgs routedEventArgs)
         {
-            var window = new SessionTemplatesWindow();
+            var window = new SessionTemplatesWindow(_client);
             window.ShowDialog();
             BuildSetSessionTemplateMenu();
         }
@@ -678,6 +524,7 @@ namespace QDMSServer
 
             using (var storage = DataStorageFactory.Get())
             {
+                //todo remove dependency on local storage here, use client instead
                 foreach (Instrument i in selectedInstruments)
                 {
                     try
@@ -695,37 +542,41 @@ namespace QDMSServer
         }
 
         //adds or removes a tag from one or more instruments
-        private void SetTag_ItemClick(object sender, RoutedEventArgs routedEventArgs)
+        private async void SetTag_ItemClick(object sender, RoutedEventArgs routedEventArgs)
         {
-            using (var context = new MyDBContext())
+            var selectedInstruments = InstrumentsGrid.SelectedItems;
+            var btn = (MenuItem)routedEventArgs.Source;
+            int tagID = (int)btn.Tag;
+            var tagResponse = await _client.GetTags().ConfigureAwait(true);
+            if (!tagResponse.WasSuccessful)
             {
-                var selectedInstruments = InstrumentsGrid.SelectedItems;
-                var btn = (MenuItem)routedEventArgs.Source;
+                await this.ShowMessageAsync("Error", string.Join("\n", tagResponse.Errors)).ConfigureAwait(true);
+                return;
+            }
 
-                //one instrument selected
-                foreach (Instrument instrument in selectedInstruments)
+            var tag = tagResponse.Result.FirstOrDefault(x => x.ID == tagID);
+            if (tag == null)
+            {
+                await this.ShowMessageAsync("Error", "Could not find tag on the server").ConfigureAwait(true);
+                return;
+            }
+
+            //one instrument selected
+            foreach (Instrument instrument in selectedInstruments)
+            {
+                if (btn.IsChecked)
                 {
-                    context.Instruments.Attach(instrument);
-
-                    if (btn.IsChecked)
-                    {
-                        var tag = context.Tags.First(x => x.ID == (int)btn.Tag);
-                        context.Tags.Attach(tag);
-                        instrument.Tags.Add(tag);
-                    }
-                    else
-                    {
-                        btn.IsChecked = false;
-                        var tmpTag = instrument.Tags.First(x => x.ID == (int)btn.Tag);
-                        context.Tags.Attach(tmpTag);
-                        instrument.Tags.Remove(tmpTag);
-                    }
+                    instrument.Tags.Add(tag);
+                }
+                else
+                {
+                    instrument.Tags.Remove(tag);
                 }
 
-                context.SaveChanges();
-
-                CollectionViewSource.GetDefaultView(InstrumentsGrid.ItemsSource).Refresh();
+                await _client.UpdateInstrument(instrument).ConfigureAwait(true);
             }
+
+            CollectionViewSource.GetDefaultView(InstrumentsGrid.ItemsSource).Refresh();
         }
 
         private void BtnSettings_OnItemClick(object sender, RoutedEventArgs routedEventArgs)
@@ -777,34 +628,36 @@ namespace QDMSServer
         }
 
         //add a new tag from the context menu and then apply it to the selected instruments
-        private void NewTagTextBox_KeyDown(object sender, KeyEventArgs e)
+        private async void NewTagTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key != Key.Enter) return;
 
             var newTagTextBox = (TextBox)sender;
 
-            using (var context = new MyDBContext())
+            string newTagName = newTagTextBox.Text;
+
+            //add the tag
+            var addTagResult = await _client.AddTag(new Tag() { Name = newTagName }).ConfigureAwait(true);
+            if(!addTagResult.WasSuccessful)
             {
-                string newTagName = newTagTextBox.Text;
-                if (context.Tags.Any(x => x.Name == newTagName)) return; //tag already exists
+                await this.ShowMessageAsync("Error", "Could not add tag").ConfigureAwait(true);
+                return;
+            }
+            var newTag = addTagResult.Result;
 
-                //add the tag
-                var newTag = new Tag { Name = newTagName };
-                context.Tags.Add(newTag);
+            //apply the tag to the selected instruments
+            var selectedInstruments = InstrumentsGrid.SelectedItems.Cast<Instrument>();
+            foreach (Instrument i in selectedInstruments)
+            {
+                i.Tags.Add(newTag);
+                await _client.UpdateInstrument(i).ConfigureAwait(true);
+            }
 
-                //apply the tag to the selected instruments
-                var selectedInstruments = InstrumentsGrid.SelectedItems.Cast<Instrument>();
-                foreach (Instrument i in selectedInstruments)
-                {
-                    context.Instruments.Attach(i);
-                    i.Tags.Add(newTag);
-                }
-
-                context.SaveChanges();
-
-                //update the tag menu
-                var allTags = context.Tags.ToList();
-                BuildTagContextMenu(allTags);
+            //update the tag menu
+            var allTags = await _client.GetTags().ConfigureAwait(true);
+            if (allTags.WasSuccessful)
+            {
+                BuildTagContextMenu(allTags.Result);
             }
 
             newTagTextBox.Text = "";
@@ -814,6 +667,7 @@ namespace QDMSServer
 
         private void NewDataRequestBtn_OnClick(object sender, RoutedEventArgs e)
         {
+            if (InstrumentsGrid.SelectedItem == null) return;
             var window = new HistoricalRequestWindow((Instrument)InstrumentsGrid.SelectedItem);
         }
 
@@ -866,7 +720,7 @@ namespace QDMSServer
         {
             var setSessionMenu = (MenuItem)Resources["InstrumentSetSessionMenu"];
             setSessionMenu.Items.Clear();
-
+            //todo remake to use client
             using (var context = new MyDBContext())
             {
                 foreach (SessionTemplate t in context.SessionTemplates.ToList())
@@ -883,47 +737,47 @@ namespace QDMSServer
             }
         }
 
-        private void SetSession_ItemClick(object sender, RoutedEventArgs e)
+        private async void SetSession_ItemClick(object sender, RoutedEventArgs e)
         {
-            using (var context = new MyDBContext())
+            var selectedInstruments = InstrumentsGrid.SelectedItems;
+            var btn = (MenuItem)e.Source;
+
+            int templateID = (int)btn.Tag;
+
+            var templates = await _client.GetSessionTemplates().ConfigureAwait(true);
+            if(!templates.WasSuccessful)
             {
-                var selectedInstruments = InstrumentsGrid.SelectedItems;
-                var btn = (MenuItem)e.Source;
+                await this.ShowMessageAsync("Error", string.Join("\n", templates.Errors)).ConfigureAwait(true);
+                return;
+            }
 
-                int templateID = (int)btn.Tag;
+            var template = templates.Result.FirstOrDefault(x => x.ID == templateID);
+            if (template == null)
+            {
+                await this.ShowMessageAsync("Error", "Could not find template on the server").ConfigureAwait(true);
+                return;
+            }
 
-                var templateSessions = context.TemplateSessions.Where(x => x.TemplateID == templateID).ToList();
+            foreach (Instrument instrument in selectedInstruments)
+            {
+                instrument.SessionsSource = SessionsSource.Template;
+                instrument.SessionTemplateID = templateID;
 
-                //one instrument selected
-                foreach (Instrument instrument in selectedInstruments)
+                if(instrument.Sessions == null)
                 {
-                    context.Instruments.Attach(instrument);
-                    instrument.SessionsSource = SessionsSource.Template;
-                    instrument.SessionTemplateID = templateID;
-
-                    if(instrument.Sessions == null)
-                    {
-                        instrument.Sessions = new List<InstrumentSession>();
-                    }
-
-                    //Remove any old sessions
-                    var tmpSessions = new List<InstrumentSession>(instrument.Sessions);
-                    foreach (InstrumentSession isession in tmpSessions)
-                    {
-                        context.InstrumentSessions.Attach(isession);
-                        context.InstrumentSessions.Remove(isession);
-                    }
-
-                    instrument.Sessions.Clear();
-
-                    //Add the new sessions
-                    foreach(TemplateSession ts in templateSessions)
-                    {
-                        instrument.Sessions.Add(ts.ToInstrumentSession());
-                    }
+                    instrument.Sessions = new List<InstrumentSession>();
                 }
 
-                context.SaveChanges();
+                instrument.Sessions.Clear();
+
+                //Add the new sessions
+                foreach(TemplateSession ts in template.Sessions)
+                {
+                    instrument.Sessions.Add(ts.ToInstrumentSession());
+                }
+
+                //update the instruments
+                await _client.UpdateInstrument(instrument).ConfigureAwait(true);
             }
         }
 
@@ -936,6 +790,12 @@ namespace QDMSServer
         {
             var window = new TagsWindow(_client);
             window.Show();
+            BuildTagContextMenu(window.ViewModel.Tags.Select(x => x.Model));
+        }
+
+        private void TableView_RowDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            ViewModel.EditInstrument.Execute(InstrumentsGrid.SelectedItem as Instrument).Subscribe();
         }
     }
 }

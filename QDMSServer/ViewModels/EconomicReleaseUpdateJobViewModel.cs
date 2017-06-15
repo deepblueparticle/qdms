@@ -20,27 +20,27 @@ namespace QDMSServer.ViewModels
         [Obsolete]
         public EconomicReleaseUpdateJobViewModel() { }
 
-        public EconomicReleaseUpdateJobViewModel(EconomicReleaseUpdateJobSettings job, IDataClient client, IDialogCoordinator dialogCoordinator) 
-            : base(job, new EconomicReleaseUpdateJobSettingsValidator(), client, dialogCoordinator)
+        public EconomicReleaseUpdateJobViewModel(EconomicReleaseUpdateJobSettings job, IDataClient client, IDialogCoordinator dialogCoordinator, object dialogContext) 
+            : base(job, new EconomicReleaseUpdateJobSettingsValidator(), client, dialogCoordinator, dialogContext)
         {
 
         }
 
         public int BusinessDaysBack
         {
-            get { return Model.BusinessDaysBack; }
+            get => Model.BusinessDaysBack;
             set { Model.BusinessDaysBack = value; this.RaisePropertyChanged(); }
         }
 
         public int BusinessDaysAhead
         {
-            get { return Model.BusinessDaysAhead; }
+            get => Model.BusinessDaysAhead;
             set { Model.BusinessDaysAhead = value; this.RaisePropertyChanged(); }
         }
 
         public string DataSource
         {
-            get { return Model.DataSource; }
+            get => Model.DataSource;
             set { Model.DataSource = value; this.RaisePropertyChanged(); }
         }
     }
