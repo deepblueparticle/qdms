@@ -21,6 +21,7 @@ Features
 --------
 * Manage metadata on stocks, options, futures, CFDs, etc.
 * Download historical and real time data from external data sources.
+* Download divident data from external data sources.
 * Local storage of historical data.
 * Continuous futures data.
 * Schedule automatic data updates.
@@ -30,17 +31,18 @@ Features
 Supported Data Sources
 ----------------------
 
-| Data Source                           | Historical Data supported | Real Time Data supported |
-|-------------------------------------- | ------------------------- | ------------------------ |
-| Interactive Brokers                   | :white_check_mark:    |                    |
-| Bloomberg                             | :white_check_mark:    | :white_check_mark: |
-| Quandl                                | :white_check_mark:    |                    |
-| FRED (Federal Reserve Economic Data)  | :white_check_mark:    |                    |
-| Yahoo                                 | :white_check_mark:    |                    |
-| BarChart                              | :white_check_mark:    |                    |
-| [OpenECry](http://futuresonline.com/) | :white_check_mark:    | :white_check_mark: |
-| [ForexFeed](http://forexfeed.net/)    | (not implemented)     | :white_check_mark: |
-| [EOD Data](http://www.eoddata.com/)   | :white_check_mark:    | (not implemented)  |
+| Data Source                           | Historical Data supported | Real Time Data supported | Divedent Data supported |
+|-------------------------------------- | ------------------------- | ------------------------ | ----------------------- |
+| Interactive Brokers                   | :white_check_mark:    |                    |                    |
+| Bloomberg                             | :white_check_mark:    | :white_check_mark: |                    |
+| Quandl                                | :white_check_mark:    |                    |                    |
+| FRED (Federal Reserve Economic Data)  | :white_check_mark:    |                    |                    |
+| Yahoo                                 | :white_check_mark:    |                    |                    |
+| BarChart                              | :white_check_mark:    |                    |                    |
+| [OpenECry](http://futuresonline.com/) | :white_check_mark:    | :white_check_mark: |                    |
+| [ForexFeed](http://forexfeed.net/)    | (not implemented)     | :white_check_mark: |                    |
+| [EOD Data](http://www.eoddata.com/)   | :white_check_mark:    | (not implemented)  |                    |
+| [Nasdaq](http://www.nasdaq.com/)      |                       |                    | :white_check_mark: |
 
 When you miss a data service, feel free to ask...
 
